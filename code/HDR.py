@@ -12,6 +12,9 @@ from typing import Sequence
 def imread(filename: str) -> np.ndarray:
 	return cv2.imdecode(np.fromfile(filename, dtype=np.uint8), -1)
 
+def imwrite(filename: str, img: np.ndarray):
+	cv2.imencode("." + filename.split(".")[-1], img)[1].tofile(filename)
+
 class HDRException(Exception):
 	pass
 
@@ -19,11 +22,11 @@ class HDRLtimeImgLengthException(HDRException):
 	def __init__(self, *arg, **kwarg):
 		super().__init__("HDR類別的__init__函數輸入圖片數與曝光時間陣列的大小不符", *arg, **kwarg)
 
-class HDRToneWithoutHDRImg(HDRException):
+class HDRToneWithoutHDRImgException(HDRException):
 	def __init__(self, *arg, **kwarg):
 		super().__init__("先有HDR影像才能tonemapping", *arg, **kwarg)
 
-class HDRNoSaveTarget(HDRException):
+class HDRNoSaveTargetException(HDRException):
 	def __init__(self, *arg, **kwarg):
 		super().__init__("沒有要存的東西", *arg, **kwarg)
 
@@ -176,13 +179,13 @@ class HDR:
 
 	def saveHDR(self, filename: str):
 		if not hasattr(self, "hdr"):
-			raise HDRNoSaveTarget()
+			raise HDRNoSaveTargetException()
 		pyexr.write(filename, self.hdr)
 	
 	def tonemappingL(self, a: float = 1.0,
 					 b: float = 0.0, Lwhite: float = 1e10):
 		if not hasattr(self, "hdr"):
-			raise HDRToneWithoutHDRImg()
+			raise HDRToneWithoutHDRImgException()
 		Laver = np.exp(np.sum(np.log(self.hdr + b)) / self.hdr.size)
 		Lm = self.hdr * a / Laver
 		Ld = (Lm / Lwhite / Lwhite + 1) * Lm / (Lm + 1)
@@ -193,7 +196,7 @@ class HDR:
 					   smooth_min: int = 0, smooth_max: int = 256,
 					   fre_contant: int = 256):
 		if not hasattr(self, "hdr"):
-			raise HDRToneWithoutHDRImg()
+			raise HDRToneWithoutHDRImgException()
 		print("tonemapping...")
 		inten = np.mean(self.hdr, axis=-1)
 		color = self.hdr / np.expand_dims(inten, axis=-1)
@@ -234,8 +237,8 @@ class HDR:
 	
 	def saveTone(self, filename: str):
 		if not hasattr(self, "tone"):
-			raise HDRNoSaveTarget()
-		cv2.imwrite(filename, self.tone)
+			raise HDRNoSaveTargetException()
+		imwrite(filename, self.tone)
 
 def combineImage(imgs: Sequence[np.ndarray], ltimes: Sequence[int] = None,
 				 times: Sequence[float] = None, align = True) -> np.ndarray:

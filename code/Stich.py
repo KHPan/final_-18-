@@ -9,10 +9,14 @@ import math
 import functools
 from tqdm import tqdm, trange
 import random
+from itertools import islice
 
 def imread(filename: str):
 	'''讀圖檔，取代cv2.imread的功能，解決無法開啟中文檔案的問題'''
 	return cv2.imdecode(np.fromfile(filename, dtype=np.uint8), -1)
+
+def imwrite(filename: str, img: np.ndarray):
+	cv2.imencode("." + filename.split(".")[-1], img)[1].tofile(filename)
 
 class WarpException(Exception):
 	pass
@@ -287,20 +291,21 @@ def FitRANSAC2(matches: np.ndarray, k_times: int = 10000,
 	mat[:, 2] = center
 	return mat
 
-def Blending(pic1: np.ndarray, pic2: np.ndarray, mat: np.ndarray
-			 )->np.ndarray:
+def matToCorners(mat: np.ndarray, shape1: Tuple[int], shape2: Tuple[int]
+		) -> Tuple[np.ndarray, np.ndarray, np.ndarray,
+			 		np.ndarray, np.ndarray, np.ndarray]:
 	mat = mat.copy()
 	inv_mat = -mat
 	inv_mat[:, :2] = np.linalg.inv(mat[:, :2])
 	corners = np.zeros((3, 4), dtype=np.float32)
 	corners[2] = 1
-	corners[0, :2] = pic2.shape[0]
-	corners[1, 1:3] = pic2.shape[1]
+	corners[0, :2] = shape2[0]
+	corners[1, 1:3] = shape2[1]
 	corners = np.dot(inv_mat, corners).astype(np.int32)
 	pic2corner1 = np.min(corners, axis=1)
 	pic2corner2 = np.max(corners, axis=1)
 	pic1corner1 = np.array([0, 0])
-	pic1corner2 = np.array(pic1.shape[:2])
+	pic1corner2 = np.array(shape1)
 	all_corner1 = np.min((pic1corner1, pic2corner1), axis=0)
 	all_corner2 = np.max((pic1corner2, pic2corner2), axis=0)
 	mat[:, 2] += np.dot(mat[:, :2], all_corner1 - pic1corner1)
@@ -309,9 +314,15 @@ def Blending(pic1: np.ndarray, pic2: np.ndarray, mat: np.ndarray
 	pic1corner2 -= all_corner1
 	pic2corner2 -= all_corner1
 	all_corner2 -= all_corner1
+	return mat, all_corner2, pic1corner1, pic1corner2, pic2corner1, pic2corner2
+
+def Blending(pic1: np.ndarray, pic2: np.ndarray, mat: np.ndarray
+			 )->np.ndarray:
+	mat, new_shape, pic1corner1, pic1corner2, pic2corner1, pic2corner2 = \
+		matToCorners(mat, pic1.shape[:2], pic2.shape[:2])
 	mat[:, :2] = mat[:, 1::-1]
 	mat = mat[::-1]
-	new_pic = warp(pic2, all_corner2[::-1], mat)
+	new_pic = warp(pic2, new_shape[::-1], mat)
 	pic1percent = np.ones(pic1.shape[:2], dtype=np.float32)
 	cover_corner1 = np.max((pic1corner1, pic2corner1), axis=0) - pic1corner1
 	cover_corner2 = np.min((pic1corner2, pic2corner2), axis=0) - pic1corner1
@@ -369,6 +380,22 @@ class StichFitWithoutMatchException(StichException):
 	def __init__(self, *arg, **kwarg):
 		super().__init__("在趨近位移矩陣之前需先做特徵點比對", *arg, **kwarg)
 
+class StichBlendingWithoutFitException(StichException):
+	def __init__(self, *arg, **kwarg):
+		super().__init__("在組合圖片之前需先趨近位移矩陣", *arg, **kwarg)
+
+class StichNoSaveTargetException(StichException):
+	def __init__(self, *arg, **kwarg):
+		super().__init__("沒有要存的東西", *arg, **kwarg)
+
+class StichIndexOutOfRangeException(StichException):
+	def __init__(self, *arg, **kwarg):
+		super().__init__("index超出範圍", *arg, **kwarg)
+
+class StichNoDrawTargetException(StichException):
+	def __init__(self, *arg, **kwarg):
+		super().__init__("沒有要畫的東西", *arg, **kwarg)
+
 class Stich:
 	def __init__(self, imgs: Sequence[np.ndarray]):
 		self.imgs = imgs
@@ -421,7 +448,7 @@ class Stich:
 	def FMatchDistance(self, first2second: float = 1.1):
 		if not hasattr(self, "feathures"):
 			raise StichMatchWithoutFeathuresException()
-		if not hasattr(self, "description"):
+		if not hasattr(self, "descriptions"):
 			raise StichMatchWithoutDescriptionException()
 		self.matches = []
 		for (dots1, desc1), (dots2, desc2) in pair(zip(self.feathures,
@@ -432,7 +459,7 @@ class Stich:
 	def FMatchAngle(self, first2second: float = 1.1):
 		if not hasattr(self, "feathures"):
 			raise StichMatchWithoutFeathuresException()
-		if not hasattr(self, "description"):
+		if not hasattr(self, "descriptions"):
 			raise StichMatchWithoutDescriptionException()
 		self.matches = []
 		for (dots1, desc1), (dots2, desc2) in pair(zip(self.feathures,
@@ -459,5 +486,110 @@ class Stich:
 			self.fit_mats.append(mat)
 	
 	def Blending(self) -> np.ndarray:
+		if not hasattr(self, "fit_mats"):
+			raise StichBlendingWithoutFitException()
+		self.result = self.imgs[0]
 		base = np.array([0, 0])
-		self.result
+		for mat, img in zip(self.fit_mats, self.imgs[1:]):
+			mat = mat.copy()
+			mat[:, 2] -= np.dot(mat[:, :2], base)
+			self.result, base = Blending(self.result, img, mat)
+		return self.result
+	
+	def saveResult(self, filename: str):
+		if not hasattr(self, "result"):
+			raise StichNoSaveTargetException()
+		imwrite(filename, self.result)
+	
+	def drawFeathures(self, index: int = -1,
+				   radius: int = 2, color = (0, 255, 0)
+				   ) -> Sequence[np.ndarray] | np.ndarray:
+		if not hasattr(self, "feathures"):
+			raise StichNoDrawTargetException()
+		if index >= len(self.imgs):
+			raise StichIndexOutOfRangeException()
+		if index == -1:
+			ret = []
+		for img, dots in islice(zip(self.imgs, self.feathures),
+						  0 if index == -1 else index):
+			drawimg = img.copy()
+			for dot in dots:
+				cv2.circle(drawimg, (dot[1], dot[0]), radius, color, -1)
+			if index == -1:
+				return drawimg
+			else:
+				ret.append(drawimg)
+		return ret
+	
+	def drawMatch(self, index: int = -1,
+			   width: int = 2, color = (0, 255, 0)
+			   ) -> Sequence[np.ndarray] | np.ndarray:
+		if not hasattr(self, "matches"):
+			raise StichNoDrawTargetException()
+		if index >= len(self.matches):
+			raise StichIndexOutOfRangeException()
+		if index == -1:
+			ret = []
+		for (img1, img2), mtch in islice(zip(pair(self.imgs), self.matches),
+								   0 if index == -1 else index):
+			drawimg = np.zeros((max(img1.shape[0], img2.shape[0]),
+								img1.shape[1] + img2.shape[1], 3),
+							dtype=np.uint8)
+			drawimg[ : img1.shape[0],  : img1.shape[1], :] = img1
+			drawimg[ : img2.shape[0], 
+				img1.shape[1] : (img1.shape[1] + img2.shape[1]),
+				:] = img2
+			for dot1, dot2 in mtch:
+				cv2.line(drawimg, (dot1[1], dot1[0]),
+					(dot2[1] + img1.shape[1], dot2[0]), color, width)
+			if index == -1:
+				return drawimg
+			else:
+				ret.append(drawimg)
+		return ret
+	
+	def drawFit(self, index: int = -1, second_up: bool = False
+			 ) -> Sequence[np.ndarray] | np.ndarray:
+		if not hasattr(self, "fit_mats"):
+			raise StichNoDrawTargetException()
+		if index >= len(self.fit_mats):
+			raise StichIndexOutOfRangeException()
+		if index == -1:
+			ret = []
+		for (img1, img2), mat in islice(zip(pair(self.imgs), self.fit_mats),
+								  0 if index == -1 else index):
+			mat, shape, pic1corner1, pic1corner2, _, _ = \
+				matToCorners(mat, img1.shape[:2], img2.shape[:2])
+			mat[:, :2] = mat[:, 1::-1]
+			mat = mat[::-1]
+			drawimg = warp(img2, shape[::-1], mat)
+			if second_up:
+				sub_img = drawimg[pic1corner1[0] : pic1corner2[0],
+					  			  pic1corner1[1] : pic1corner2[1]]
+				paste_img1 = np.all(sub_img == 0, axis=-1)
+			else:
+				paste_img1 = not np.all(img1 == 0, axis=-1)
+			paste_img1 = np.array(np.where(paste_img1))
+			drawimg[*(paste_img1 +
+			 	np.expand_dims(pic1corner1, axis=-1))] = img1[*paste_img1]
+			if index == -1:
+				ret.append(drawimg)
+			else:
+				return drawimg
+		return ret
+
+def stich(imgs: Sequence[np.ndarray]) -> np.ndarray:
+	obj = Stich(imgs)
+	print("FDetectionHarris")
+	obj.FDetectionHarris()
+	print("warpToCylinder")
+	obj.warpToCylinder()
+	print("FDescriptionSIFT")
+	obj.FDescriptionSIFT()
+	print("FMatchAngle")
+	obj.FMatchAngle()
+	print("FitRANSAC2")
+	obj.FitRANSAC2()
+	print("Blending")
+	obj.Blending()
+	return obj.result
