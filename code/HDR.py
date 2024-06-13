@@ -240,7 +240,7 @@ class HDR:
 			raise HDRNoSaveTargetException()
 		imwrite(filename, self.tone)
 
-def combineImage(imgs: Sequence[np.ndarray], ltimes: Sequence[int] = None,
+def makeHDR(imgs: Sequence[np.ndarray], ltimes: Sequence[int] = None,
 				 times: Sequence[float] = None, align = True) -> np.ndarray:
 	hdr = HDR(imgs, ltimes, times)
 	if align:
