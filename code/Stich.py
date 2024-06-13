@@ -403,6 +403,7 @@ class Stich:
 	def FDetectionHarris(self, k: float = 0.06,
 			RThreshold: float = 0.5, GaussianSD: int = 4):
 		self.feathures = []
+		print("FDetectionHarris")
 		for img in self.imgs:
 			self.feathures.append(FDetectionHarris(
 				img, k, RThreshold, GaussianSD))
@@ -410,6 +411,7 @@ class Stich:
 	def warpToCylinder(self, focalLength: int = 500):
 		imgcpy = self.imgs
 		self.imgs = []
+		print("warpToCylinder")
 		if hasattr(self, "feathures"):
 			fcpy = self.feathures
 			self.feathures = []
@@ -426,6 +428,7 @@ class Stich:
 	def FDescriptionNaive(self):
 		if not hasattr(self, "feathures"):
 			raise StichDescriptionWithoutFeathuresException()
+		print("FDescriptionNaive")
 		self.descriptions = []
 		fcpy = self.feathures
 		self.feathures = []
@@ -438,6 +441,7 @@ class Stich:
 		if not hasattr(self, "feathures"):
 			raise StichDescriptionWithoutFeathuresException()
 		self.descriptions = []
+		print("FDescriptionSIFT")
 		fcpy = self.feathures
 		self.feathures = []
 		for img, dots in zip(self.imgs, fcpy):
@@ -450,6 +454,7 @@ class Stich:
 			raise StichMatchWithoutFeathuresException()
 		if not hasattr(self, "descriptions"):
 			raise StichMatchWithoutDescriptionException()
+		print("FMatchDistance")
 		self.matches = []
 		for (dots1, desc1), (dots2, desc2) in pair(zip(self.feathures,
 													self.descriptions)):
@@ -461,6 +466,7 @@ class Stich:
 			raise StichMatchWithoutFeathuresException()
 		if not hasattr(self, "descriptions"):
 			raise StichMatchWithoutDescriptionException()
+		print("FMatchAngle")
 		self.matches = []
 		for (dots1, desc1), (dots2, desc2) in pair(zip(self.feathures,
 													self.descriptions)):
@@ -471,6 +477,7 @@ class Stich:
 			n_sample: int = 6, deviation_threshold: float = 15.0):
 		if not hasattr(self, "matches"):
 			raise StichFitWithoutMatchException()
+		print("FitRANSAC")
 		self.fit_mats = []
 		for mtch in self.matches:
 			mat = FitRANSAC(mtch, k_times, n_sample, deviation_threshold)
@@ -480,6 +487,7 @@ class Stich:
 			  n_sample: int = 6, deviation_threshold: float = 15.0):
 		if not hasattr(self, "matches"):
 			raise StichFitWithoutMatchException()
+		print("FitRANSAC2")
 		self.fit_mats = []
 		for mtch in self.matches:
 			mat = FitRANSAC2(mtch, k_times, n_sample, deviation_threshold)
@@ -490,6 +498,7 @@ class Stich:
 			raise StichBlendingWithoutFitException()
 		self.result = self.imgs[0]
 		base = np.array([0, 0])
+		print("Blending")
 		for mat, img in zip(self.fit_mats, self.imgs[1:]):
 			mat = mat.copy()
 			mat[:, 2] -= np.dot(mat[:, :2], base)
@@ -511,14 +520,14 @@ class Stich:
 		if index == -1:
 			ret = []
 		for img, dots in islice(zip(self.imgs, self.feathures),
-						  0 if index == -1 else index):
+						  0 if index == -1 else index, None):
 			drawimg = img.copy()
 			for dot in dots:
 				cv2.circle(drawimg, (dot[1], dot[0]), radius, color, -1)
 			if index == -1:
-				return drawimg
-			else:
 				ret.append(drawimg)
+			else:
+				return drawimg
 		return ret
 	
 	def drawMatch(self, index: int = -1,
@@ -531,7 +540,7 @@ class Stich:
 		if index == -1:
 			ret = []
 		for (img1, img2), mtch in islice(zip(pair(self.imgs), self.matches),
-								   0 if index == -1 else index):
+								   0 if index == -1 else index, None):
 			drawimg = np.zeros((max(img1.shape[0], img2.shape[0]),
 								img1.shape[1] + img2.shape[1], 3),
 							dtype=np.uint8)
@@ -543,9 +552,9 @@ class Stich:
 				cv2.line(drawimg, (dot1[1], dot1[0]),
 					(dot2[1] + img1.shape[1], dot2[0]), color, width)
 			if index == -1:
-				return drawimg
-			else:
 				ret.append(drawimg)
+			else:
+				return drawimg
 		return ret
 	
 	def drawFit(self, index: int = -1, second_up: bool = False
@@ -557,7 +566,7 @@ class Stich:
 		if index == -1:
 			ret = []
 		for (img1, img2), mat in islice(zip(pair(self.imgs), self.fit_mats),
-								  0 if index == -1 else index):
+								  0 if index == -1 else index, None):
 			mat, shape, pic1corner1, pic1corner2, _, _ = \
 				matToCorners(mat, img1.shape[:2], img2.shape[:2])
 			mat[:, :2] = mat[:, 1::-1]
@@ -568,7 +577,7 @@ class Stich:
 					  			  pic1corner1[1] : pic1corner2[1]]
 				paste_img1 = np.all(sub_img == 0, axis=-1)
 			else:
-				paste_img1 = not np.all(img1 == 0, axis=-1)
+				paste_img1 = np.any(img1 != 0, axis=-1)
 			paste_img1 = np.array(np.where(paste_img1))
 			drawimg[*(paste_img1 +
 			 	np.expand_dims(pic1corner1, axis=-1))] = img1[*paste_img1]
@@ -580,16 +589,10 @@ class Stich:
 
 def stich(imgs: Sequence[np.ndarray]) -> np.ndarray:
 	obj = Stich(imgs)
-	print("FDetectionHarris")
 	obj.FDetectionHarris()
-	print("warpToCylinder")
 	obj.warpToCylinder()
-	print("FDescriptionSIFT")
 	obj.FDescriptionSIFT()
-	print("FMatchAngle")
 	obj.FMatchAngle()
-	print("FitRANSAC2")
 	obj.FitRANSAC2()
-	print("Blending")
 	obj.Blending()
 	return obj.result
