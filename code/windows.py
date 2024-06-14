@@ -20,6 +20,8 @@ def getLine() -> QFrame:
 	line.setFrameShadow(QFrame.Sunken)
 	return line
 
+meaning = {"fre_constant": "對比"}
+
 class FuncForm:
 	def __init__(self, func: Sequence[Callable] | Callable,
 			  parent):
@@ -51,7 +53,10 @@ class FuncForm:
 		else:
 			combo = QComboBox(self.parent)
 			for func in self.func:
-				combo.addItem(func.__name__)
+				if func.__name__ in meaning:
+					combo.addItem(meaning[func.__name__])
+				else:
+					combo.addItem(func.__name__)
 			combo.activated.connect(self.oncombo)
 			mainLayout.addWidget(combo)
 		self.form = QFormLayout()
@@ -69,7 +74,10 @@ class FuncForm:
 				text.setValidator(QIntValidator())
 			else:
 				text.setValidator(QDoubleValidator())
-			self.form.addRow(key, text)
+			if key in meaning:
+				self.form.addRow(meaning[key], text)
+			else:
+				self.form.addRow(key, text)
 			self.attrs.append(text)
 	
 	def valid(self) -> bool:
@@ -177,7 +185,10 @@ class HDRDialog(QDialog):
 		self.setFont(self.parent().font)
 		mainLayout = QVBoxLayout()
 
-		self.alignment = QCheckBox("alignment")
+		if "alignment" in meaning:
+			self.alignment = QCheckBox(meaning["alignment"])
+		else:
+			self.alignment = QCheckBox("alignment")
 		self.alignment.setChecked(True)
 		mainLayout.addWidget(self.alignment)
 
