@@ -49,7 +49,10 @@ class FuncForm:
 
 	def draw(self, mainLayout: QVBoxLayout):
 		if len(self.func) == 1:
-			mainLayout.addWidget(QLabel(self.func[0].__name__))
+			if self.func[0].__name__ in meaning:
+				mainLayout.addWidget(QLabel(meaning[self.func[0].__name__]))
+			else:
+				mainLayout.addWidget(QLabel(self.func[0].__name__))
 		else:
 			combo = QComboBox(self.parent)
 			for func in self.func:
