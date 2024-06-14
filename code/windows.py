@@ -20,7 +20,11 @@ def getLine() -> QFrame:
 	line.setFrameShadow(QFrame.Sunken)
 	return line
 
-meaning = {"fre_constant": "對比"}
+meaning = {"fre_constant": "細節對比", "smooth_constant":"mask大小平滑", "smooth_coustant": "平滑",
+		    "smooth_min":"亮度mapping最小值", "smooth_max":"亮度mapping最大值", "first2second": "配一到二"
+			, "s_default": "SIFT基礎", "k_times": "what",
+			"focalLength": "焦距[單位像素]", "k": "KKK", "RThreshold":"Response值門檻", "GaussianSD":"高斯",
+			"k": "小k", "n_sample": "取樣", "deviation_threshold":"dth"}
 
 class FuncForm:
 	def __init__(self, func: Sequence[Callable] | Callable,
@@ -136,11 +140,11 @@ class HDRDialog(QDialog):
 
 	def timeModify(self):
 		if self.times is None:
-			return self.autoLight.isCheck() == False
-		if self.autoLight.isCheck() == True:
+			return self.autoLight.isChecked() == False
+		if self.autoLight.isChecked() == True:
 			return True
 		return any(1 / float(text.text()) != time
-			 for text, time in zip(self.timeText(), self.times()))
+			 for text, time in zip(self.timeText, self.times))
 
 	def setStart(self, to: int):
 		if self.start > 0 and (not cmp_list(self.cpy_imgs, self.parent().imgs)
