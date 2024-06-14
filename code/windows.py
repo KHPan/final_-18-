@@ -127,11 +127,25 @@ class HDRDialog(QDialog):
 		self.cpy_imgs = parent.imgs[:]
 		self.origin_align = True
 		self.start = 0
+		self.times = None
 		self.initUI()
-	
+
+	def timeValid(self) -> bool:
+		return self.autoLight.isChecked() or all(text.text() != "" 
+										   for text in self.timeText)
+
+	def timeModify(self):
+		if self.times is None:
+			return self.autoLight.isCheck() == False
+		if self.autoLight.isCheck() == True:
+			return True
+		return any(1 / float(text.text()) != time
+			 for text, time in zip(self.timeText(), self.times()))
+
 	def setStart(self, to: int):
-		if self.start > 0 and (not cmp_list(self.cpy_imgs, self.parent().imgs) or
-				self.alignment.isChecked() != self.origin_align):
+		if self.start > 0 and (not cmp_list(self.cpy_imgs, self.parent().imgs)
+				or self.alignment.isChecked() != self.origin_align
+				or self.timeModify()):
 			self.start = 0
 		if self.start > 1 and self.funcForms[0].modify():
 			self.start = 1
@@ -144,7 +158,13 @@ class HDRDialog(QDialog):
 		self.setStart(to)
 		print("start:", self.start)
 		if self.start <= 0:
-			self.hdr.__init__(self.parent().imgs[:])
+			if self.autoLight.isChecked():
+				self.times = None
+			else:
+				self.times = []
+				for text in self.timeText:
+					self.times.append(1 / float(text.text()))
+			self.hdr.__init__(self.parent().imgs[:], times=self.times)
 			self.cpy_imgs = self.parent().imgs[:]
 			self.origin_align = self.alignment.isChecked()
 			if self.origin_align:
@@ -162,9 +182,21 @@ class HDRDialog(QDialog):
 		if self.start <= 2:
 			self.funcForms[1].run()
 			self.start = 3
+	
+	def autoCheck(self, checked: bool):
+		for text in self.timeText:
+			text.setEnabled(not checked)
+		if checked:
+			self.times = None
+		else:
+			self.times = []
+			for text in self.timeText:
+				text.setText("1")
+				self.times.append(1.0)
 
 	def saveHDR(self):
-		if not all(funcForm.valid() for funcForm in self.funcForms):
+		if not (all(funcForm.valid() for funcForm in self.funcForms)
+		  		and self.timeValid()):
 			QMessageBox.warning(self, "警告", "文字方塊不得為空")
 			return
 		
@@ -174,7 +206,8 @@ class HDRDialog(QDialog):
 			self.hdr.saveHDR(filename)
 
 	def runAll(self):
-		if not all(funcForm.valid() for funcForm in self.funcForms):
+		if not (all(funcForm.valid() for funcForm in self.funcForms)
+		  		and self.timeValid()):
 			QMessageBox.warning(self, "警告", "文字方塊不得為空")
 			return
 		
@@ -187,6 +220,26 @@ class HDRDialog(QDialog):
 		self.setWindowTitle("HDR Detail")
 		self.setFont(self.parent().font)
 		mainLayout = QVBoxLayout()
+
+		self.autoLight = QCheckBox("自動曝光時間")
+		self.autoLight.setChecked(True)
+		self.autoLight.clicked.connect(self.autoCheck)
+		mainLayout.addWidget(self.autoLight)
+
+		self.timeLayout = QHBoxLayout()
+		self.timeText = []
+		for i in range(len(self.cpy_imgs)):
+			if i > 0:
+				self.timeLayout.addStretch()
+			self.timeLayout.addWidget(QLabel(" 1/"))
+			text = QLineEdit("1", self)
+			text.setValidator(QDoubleValidator())
+			text.setEnabled(False)
+			self.timeText.append(text)
+			self.timeLayout.addWidget(text)
+		mainLayout.addLayout(self.timeLayout)
+
+		mainLayout.addWidget(getLine())
 
 		if "alignment" in meaning:
 			self.alignment = QCheckBox(meaning["alignment"])

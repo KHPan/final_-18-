@@ -34,6 +34,7 @@ class HDR:
 	def __init__(self, imgs: Sequence[np.ndarray],
 			  ltimes: Sequence[int] = None, times: Sequence[float] = None,
 			  is_auto_sort = False, ltstep = 1):
+		print("times", times)
 		self.imgs = imgs
 		if is_auto_sort or (ltimes is None and times is None):
 			self.imgs = sorted(self.imgs, key=np.sum)
