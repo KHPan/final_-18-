@@ -192,28 +192,28 @@ class HDR:
 		tone = (np.clip(Ld, 0.0, 1.0) * 255).astype(np.uint8)
 		self.tone = tone
 	
-	def tonemappingBil(self, smooth_contant: int = 20,
+	def tonemappingBil(self, smooth_constant: int = 20,
 					   smooth_min: int = 0, smooth_max: int = 256,
-					   fre_contant: int = 256):
+					   fre_constant: int = 256):
 		if not hasattr(self, "hdr"):
 			raise HDRToneWithoutHDRImgException()
 		print("tonemapping...")
 		inten = np.mean(self.hdr, axis=-1)
 		color = self.hdr / np.expand_dims(inten, axis=-1)
-		msk = np.stack(np.indices((smooth_contant*2+1,
-								smooth_contant*2+1)), axis=-1)
-		msk = np.sum(np.power(msk - smooth_contant, 2), axis=-1)
-		msk = np.exp(-msk / (smooth_contant * smooth_contant / 2))
-		msk /= smooth_contant * math.sqrt(math.pi / 2)
+		msk = np.stack(np.indices((smooth_constant*2+1,
+								smooth_constant*2+1)), axis=-1)
+		msk = np.sum(np.power(msk - smooth_constant, 2), axis=-1)
+		msk = np.exp(-msk / (smooth_constant * smooth_constant / 2))
+		msk /= smooth_constant * math.sqrt(math.pi / 2)
 		div_up = np.zeros(inten.shape, dtype=np.float64)
 		div_down = np.zeros(inten.shape, dtype=np.float64)
-		for dx in trange(-smooth_contant, smooth_contant+1, unit="row"):
-			for dy in range(-smooth_contant, smooth_contant+1):
+		for dx in trange(-smooth_constant, smooth_constant+1, unit="row"):
+			for dy in range(-smooth_constant, smooth_constant+1):
 				origin = inten[max(0, dx) : inten.shape[0] + min(0, dx),
 							max(0, dy) : inten.shape[1] + min(0, dy)]
 				new = inten[max(0, -dx) : inten.shape[0] + min(0, -dx),
 							max(0, -dy) : inten.shape[1] + min(0, -dy)]
-				co = (msk[dx+smooth_contant, dy+smooth_contant] *
+				co = (msk[dx+smooth_constant, dy+smooth_constant] *
 					np.exp(-np.power((new - origin) / origin, 2) * 10))
 				div_up[max(0, dx) : inten.shape[0] + min(0, dx),
 					max(0, dy) : inten.shape[1] + min(0, dy)] += co * new
@@ -226,7 +226,7 @@ class HDR:
 						* (smooth_max - smooth_min)
 						/ (np.max(inten_smooth) - np.min(inten_smooth))
 						+ smooth_min)
-		inten = inten_smooth + inten_fre * fre_contant
+		inten = inten_smooth + inten_fre * fre_constant
 		tone = np.clip(np.expand_dims(inten, axis=-1)
 						* color, 0, 255).astype(np.uint8)
 		print("tonemapping finish")

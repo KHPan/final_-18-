@@ -99,6 +99,11 @@ class FuncForm:
 		print(run_attrs)
 		self.func[self.index](**run_attrs)
 
+def cmp_list(lst1: Sequence, lst2: Sequence) -> bool:
+	if len(lst1) != len(lst2):
+		return False
+	return all(i1 is i2 for i1, i2 in zip(lst1, lst2))
+
 class HDRDialog(QDialog):
 	def __init__(self, parent):
 		super().__init__(parent)
@@ -114,7 +119,7 @@ class HDRDialog(QDialog):
 		self.initUI()
 	
 	def setStart(self, to: int):
-		if self.start > 0 and (self.cpy_imgs != self.parent().imgs or
+		if self.start > 0 and (not cmp_list(self.cpy_imgs, self.parent().imgs) or
 				self.alignment.isChecked() != self.origin_align):
 			self.start = 0
 		if self.start > 1 and self.funcForms[0].modify():
@@ -218,7 +223,7 @@ class StichDialog(QDialog):
 		self.initUI()
 	
 	def setStart(self, to: int):
-		if self.start > 0 and (self.cpy_imgs != self.parent().imgs or
+		if self.start > 0 and (not cmp_list(self.cpy_imgs, self.parent().imgs) or
 				self.funcForms[0].modify() or self.funcForms[1].modify()):
 			self.start = 0
 		for i in range(1, 4):
