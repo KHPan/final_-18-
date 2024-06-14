@@ -21,10 +21,10 @@ def getLine() -> QFrame:
 	return line
 
 meaning = {"fre_constant": "細節對比", "smooth_constant":"mask大小平滑", "smooth_coustant": "平滑",
-		    "smooth_min":"亮度mapping最小值", "smooth_max":"亮度mapping最大值", "first2second": "配一到二"
-			, "s_default": "SIFT基礎", "k_times": "what",
-			"focalLength": "焦距[單位像素]", "k": "KKK", "RThreshold":"Response值門檻", "GaussianSD":"高斯",
-			"k": "小k", "n_sample": "取樣", "deviation_threshold":"dth"}
+		    "smooth_min":"亮度mapping最小值", "smooth_max":"亮度mapping最大值", "first2second": "最適配pair高於第二適配倍數"
+			, "s_default": "SIFT缺少s向量補的常數", "k_times": "k次",
+			"focalLength": "焦距[單位像素]", "RThreshold":"Response值門檻", "GaussianSD":"高斯矩陣邊長/4",
+			"k": "Response參數k", "n_sample": "取樣數", "deviation_threshold":"deviation_threshold"}
 
 class FuncForm:
 	def __init__(self, func: Sequence[Callable] | Callable,
