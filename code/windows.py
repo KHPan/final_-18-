@@ -24,7 +24,11 @@ meaning = {"fre_constant": "細節對比", "smooth_constant":"mask大小平滑",
 		    "smooth_min":"亮度mapping最小值", "smooth_max":"亮度mapping最大值", "first2second": "最適配pair高於第二適配倍數"
 			, "s_default": "SIFT缺少s向量補的常數", "k_times": "k次",
 			"focalLength": "焦距[單位像素]", "RThreshold":"Response值門檻", "GaussianSD":"高斯矩陣邊長/4",
-			"k": "Response參數k", "n_sample": "取樣數", "deviation_threshold":"deviation_threshold"}
+			"k": "Response參數k", "n_sample": "取樣數", "deviation_threshold":"deviation_threshold",
+			"FDetectionHarris": "Harris偵測特徵點", "FDescriptionSIFT":"用SIFT描述特徵點", 
+			"FitRANSAC2":"RANSAC只考慮平移", "FitRANSAC": "RANSAC平移、旋轉、縮放",
+			"tonemappingBil":"Bilateral tonemapping", "tonemappingL":"Linear tonemapping",
+			"FMatchAngle":"以角度配對", "FMatchDistance":"以距離配對"}
 
 class FuncForm:
 	def __init__(self, func: Sequence[Callable] | Callable,
